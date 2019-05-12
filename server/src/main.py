@@ -44,7 +44,7 @@ walls = [
 
 """
 players = [
-{ pos: {'x':5, 'y':5}, 'c':"#", s: 3},
+{ pos: {'x':5, 'y':5}, 'c':"#", s: 3, d:0},
 ]
 """
 
@@ -59,16 +59,26 @@ def acceptClients():
       else:
         playerid = -1
 
-    print(f'Connection from {address}. Assigning to player {playerid}')
-    clientsocket.send(bytes(json.dumps({'id': playerid, 'w': width, 'h': height, 'walls': walls}) + ";", 'utf-8'))
+    if playerid == -1:
+      clientsocket.send(bytes("full;", 'utf-8'))
+      clientsocket.close()
+      print(f'Connection from {address} rejected.')
+    else:
+      print(f'Connection from {address}. Assigning to player {playerid}')
+      clientsocket.send(bytes(json.dumps({'id': playerid, 'w': width, 'h': height, 'walls': walls}) + ";", 'utf-8'))
 
-    ids = ['#', '@', '&', '+']
+      ids = ['#', '@', '&', '+']
 
-    if not playerid == -1:
-      game['players'][playerid] = {'pos': {'x': random.randint(1, width - 2), 'y': random.randint(1, height - 2)}, 'c':ids[playerid] }
-      clients[playerid] = clientsocket
+      if not playerid == -1:
+        game['players'][playerid] = {
+          'pos': {'x': random.randint(1, width - 2), 'y': random.randint(1, height - 2)},
+          'c': ids[playerid], # Character
+          's': 0, # Score
+          'd': 0 # Is dead
+        }
+        clients[playerid] = clientsocket
 
-      threading.Thread(target = listenToPlayer, args = (clientsocket, playerid), daemon = True).start()
+        threading.Thread(target = listenToPlayer, args = (clientsocket, playerid), daemon = True).start()
 
 def listenToPlayer(clientsocket, playerid):
     while True:
@@ -111,13 +121,13 @@ def listenToPlayer(clientsocket, playerid):
 
         if action == 's':
           if payload == 0: # Up
-            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] - 1 }, 'dir': payload})
+            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] - 1 }, 'dir': payload, 'id': playerid})
           if payload == 1: # Right
-            game['bullets'].append({'pos': { 'x': pos['x'] + 1, 'y': pos['y'] }, 'dir': payload})
+            game['bullets'].append({'pos': { 'x': pos['x'] + 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
           if payload == 2: # Down
-            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] + 1 }, 'dir': payload})
+            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] + 1 }, 'dir': payload, 'id': playerid})
           if payload == 3: # Left
-            game['bullets'].append({'pos': {'x': pos['x'] - 1, 'y': pos['y'] }, 'dir': payload})
+            game['bullets'].append({'pos': {'x': pos['x'] - 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
       except:
         pass
 
@@ -136,7 +146,7 @@ while True: # Update clients
         elif bullet['dir'] == 3:
           bullet['pos']['x'] -= 1
 
-    for index in range(0, len(game['bullets'])):
+    for index in range(0, len(game['bullets'])): # Mark bullets to be removed
       if game['bullets'][index]['pos']['y'] <= 0 or game['bullets'][index]['pos']['x'] >= width - 1 or game['bullets'][index]['pos']['y'] > height - 1 or game['bullets'][index]['pos']['x'] <= 0:
         game['bullets'][index] = -1
       else:
@@ -144,15 +154,23 @@ while True: # Update clients
           game['bullets'][index] = -1
 
     game['bullets'] = [item for item in game['bullets'] if
-      not item == -1] # Remove still bullets
+      not item == -1] # Remove bullets
 
-    for index in range(0, len(game['players'])):
+    for index in range(0, len(game['players'])): # Check if player dies
       player = game['players'][index]
-      for bullet in game['bullets']:
-        if not player == None and player['pos']['x'] == bullet['pos']['x'] and player['pos']['y'] == bullet['pos']['y']:
-          game['players'][index] = None
+      if not player == None:
+        for bullet in game['bullets']:
+          if player['pos'] == bullet['pos']:
+            bulletid = bullet['id']
 
-    for index in range(0, len(game['players'])):
+            game['players'][index]['pos'] = {
+              'x': random.randint(1, width - 2),
+              'y': random.randint(1, height - 2)
+            } # Respawn player
+
+            game['players'][bulletid]['s'] += 1 # Give a point
+
+    for index in range(0, len(game['players'])): # Send game state to players
       if not clients[index] == None:
         clients[index].send(bytes(json.dumps(game) + ";", 'utf-8'))
 

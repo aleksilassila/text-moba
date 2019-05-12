@@ -1,4 +1,4 @@
-import socket, json, threading, curses
+import socket, json, threading, curses, sys
 
 class Game:
   def __init__(self, host, port):
@@ -28,8 +28,12 @@ class Game:
     while True:
       message += self.s.recv(1).decode('utf-8')
       if message[-1] == ";":
-        data = json.loads(message[:-1])
-        break
+        if message[:-1] == 'full':
+          print('Session is full.')
+          sys.exit()
+        else:
+          data = json.loads(message[:-1])
+          break
 
     self.playerid = data['id']
     self.size = (data['h'], data['w'])
@@ -56,18 +60,17 @@ class Game:
 
   def draw(self):
     self.window.erase()
+    self.window.border(0) # Draw border
 
-    if self.game['players'][self.playerid] == None:
-      self.s.close()
-      self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      self.connect()
-    else:
-      for player in self.game['players']: # Players
-        if not player == None:
-          self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
+    for index in range(0, len(self.game['players'])): # Players
+      player = self.game['players'][index]
 
-      for bullet in self.game['bullets']: # Bullets
-        self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+      if not player == None:
+        self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
+        self.window.addstr(0, 2 + (index * 14), f' Player {index + 1}: {player["s"]} ')
 
-      for wall in self.walls:
-        self.window.addch(wall[1], wall[0], '▓')
+    for bullet in self.game['bullets']: # Bullets
+      self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+
+    for wall in self.walls:
+      self.window.addch(wall[1], wall[0], '▓')

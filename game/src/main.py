@@ -21,7 +21,6 @@ while game.game == {}:
 game.draw()
 
 while True:
-  game.window.border(0) # Draw border
   key = game.window.getch()
 
   if key == 27: # Quit if esc
