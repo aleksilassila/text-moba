@@ -62,15 +62,17 @@ class Game:
     self.window.erase()
     self.window.border(0) # Draw border
 
+    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} ')
+
+    for bullet in self.game['bullets']: # Bullets
+      self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+
     for index in range(0, len(self.game['players'])): # Players
       player = self.game['players'][index]
 
       if not player == None:
         self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
-        self.window.addstr(0, 2 + (index * 14), f' Player {index + 1}: {player["s"]} ')
-
-    for bullet in self.game['bullets']: # Bullets
-      self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+        self.window.addstr(self.size[0] - 1, 2 + (index * 14), f' Player {player["c"]}: {player["s"]} ')
 
     for wall in self.walls:
       self.window.addch(wall[1], wall[0], '▓')

@@ -120,14 +120,16 @@ def listenToPlayer(clientsocket, playerid):
             pos['x'] -= 1
 
         if action == 's':
-          if payload == 0: # Up
-            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] - 1 }, 'dir': payload, 'id': playerid})
-          if payload == 1: # Right
-            game['bullets'].append({'pos': { 'x': pos['x'] + 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
-          if payload == 2: # Down
-            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] + 1 }, 'dir': payload, 'id': playerid})
-          if payload == 3: # Left
-            game['bullets'].append({'pos': {'x': pos['x'] - 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
+            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload, 'id': playerid})
+
+          # if payload == 0: # Up
+          #   game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] - 1 }, 'dir': payload, 'id': playerid})
+          # if payload == 1: # Right
+          #   game['bullets'].append({'pos': { 'x': pos['x'] + 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
+          # if payload == 2: # Down
+          #   game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] + 1 }, 'dir': payload, 'id': playerid})
+          # if payload == 3: # Left
+          #   game['bullets'].append({'pos': {'x': pos['x'] - 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
       except:
         pass
 
@@ -135,7 +137,7 @@ threading.Thread(target = acceptClients, daemon = True).start()
 
 while True: # Update clients
   try:
-    for bullet in game['bullets']:
+    for bullet in game['bullets']: # Move bullets
       if not bullet == -1:
         if bullet['dir'] == 0:
           bullet['pos']['y'] -= 1
@@ -160,7 +162,7 @@ while True: # Update clients
       player = game['players'][index]
       if not player == None:
         for bullet in game['bullets']:
-          if player['pos'] == bullet['pos']:
+          if player['pos'] == bullet['pos'] and not bullet['id'] == index:
             bulletid = bullet['id']
 
             game['players'][index]['pos'] = {
