@@ -1,15 +1,6 @@
 import threading, socket, json, time, random, sys
 
-ip, port = sys.argv[1].split(":")
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((ip, int(port)))
-s.listen(16)
-
 clients = [None, None, None, None]
-
-width = 80
-height = 24
 
 game = {
   'players': [None, None, None, None],
@@ -17,36 +8,31 @@ game = {
   'walls': []
 }
 
-walls = [
-  [4,4], 
-  [5,4], 
-  [6,4], 
-  [7,4], 
-  [4,5], 
-  [4,6], 
-  [4,7], 
-  
-  [30,10],
-  [30,11], 
-  [30,12],
-
-  [50,8], 
-  [50,9], 
-  [50,10],
-
-  [75, 4], 
-  [75, 5], 
-  [75, 6], 
-  [74, 4],
-  [73, 4],
-  [72, 4]
-]
-
+""" Example
+game = {
+  'players': [{pos: {x: 5, y: 5}, c: character, s: score, d: dead}, None, None, None],
+  'bullets': [{pos: {x: 5, y: 5}, dir: direction, id: playerid}],
+  'walls': []
+}
 """
-players = [
-{ pos: {'x':5, 'y':5}, 'c':"#", s: 3, d:0},
-]
-"""
+
+width = 80
+height = 24
+
+if len(sys.argv) <= 1 or sys.argv[1] == '--help' or sys.argv[1] == '-h':
+  print('Server takes bind address as first argument [ip:port] and map file as second argument (defaults to map.json)')
+  sys.exit()
+else:
+  ip, port = sys.argv[1].split(":")
+  mapFile = 'map.json' if not len(sys.argv) > 2 else sys.argv[2]
+  with open(mapFile) as f:
+    mapData = json.load(f)
+    game['walls'] = mapData['walls']
+    width, height = mapData['size']
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind((ip, int(port)))
+s.listen(16)
 
 def acceptClients():
   while True:
@@ -65,7 +51,7 @@ def acceptClients():
       print(f'Connection from {address} rejected.')
     else:
       print(f'Connection from {address}. Assigning to player {playerid}')
-      clientsocket.send(bytes(json.dumps({'id': playerid, 'w': width, 'h': height, 'walls': walls}) + ";", 'utf-8'))
+      clientsocket.send(bytes(json.dumps({'id': playerid, 'w': width, 'h': height, 'walls': game['walls']}) + ";", 'utf-8'))
 
       ids = ['#', '@', '&', '+']
 
@@ -110,26 +96,18 @@ def listenToPlayer(clientsocket, playerid):
         pos = game['players'][playerid]['pos']
 
         if action == 'm': # Move
-          if payload == 0 and pos['y'] - 1 > 0 and not any([pos['x'], pos['y'] - 1] == wall for wall in walls): # Up
+          if payload == 0 and pos['y'] - 1 > 0 and not any([pos['x'], pos['y'] - 1] == wall for wall in game['walls']): # Up
             pos['y'] -= 1
-          if payload == 1 and pos['x'] + 1 < width - 1 and not any([pos['x'] + 1, pos['y']] == wall for wall in walls): # Right
+          if payload == 1 and pos['x'] + 1 < width - 1 and not any([pos['x'] + 1, pos['y']] == wall for wall in game['walls']): # Right
             pos['x'] += 1
-          if payload == 2 and pos['y'] + 1 < height - 1 and not any([pos['x'], pos['y'] + 1] == wall for wall in walls): # Down
+          if payload == 2 and pos['y'] + 1 < height - 1 and not any([pos['x'], pos['y'] + 1] == wall for wall in game['walls']): # Down
             pos['y'] += 1
-          if payload == 3 and pos['x'] - 1 > 0 and not any([pos['x'] - 1, pos['y']] == wall for wall in walls): # Left
+          if payload == 3 and pos['x'] - 1 > 0 and not any([pos['x'] - 1, pos['y']] == wall for wall in game['walls']): # Left
             pos['x'] -= 1
 
         if action == 's':
             game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload, 'id': playerid})
 
-          # if payload == 0: # Up
-          #   game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] - 1 }, 'dir': payload, 'id': playerid})
-          # if payload == 1: # Right
-          #   game['bullets'].append({'pos': { 'x': pos['x'] + 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
-          # if payload == 2: # Down
-          #   game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] + 1 }, 'dir': payload, 'id': playerid})
-          # if payload == 3: # Left
-          #   game['bullets'].append({'pos': {'x': pos['x'] - 1, 'y': pos['y'] }, 'dir': payload, 'id': playerid})
       except:
         pass
 
@@ -138,21 +116,20 @@ threading.Thread(target = acceptClients, daemon = True).start()
 while True: # Update clients
   try:
     for bullet in game['bullets']: # Move bullets
-      if not bullet == -1:
-        if bullet['dir'] == 0:
-          bullet['pos']['y'] -= 1
-        elif bullet['dir'] == 1:
-          bullet['pos']['x'] += 1
-        elif bullet['dir'] == 2:
-          bullet['pos']['y'] += 1
-        elif bullet['dir'] == 3:
-          bullet['pos']['x'] -= 1
+      if bullet['dir'] == 0:
+        bullet['pos']['y'] -= 1
+      elif bullet['dir'] == 1:
+        bullet['pos']['x'] += 1
+      elif bullet['dir'] == 2:
+        bullet['pos']['y'] += 1
+      elif bullet['dir'] == 3:
+        bullet['pos']['x'] -= 1
 
     for index in range(0, len(game['bullets'])): # Mark bullets to be removed
-      if game['bullets'][index]['pos']['y'] <= 0 or game['bullets'][index]['pos']['x'] >= width - 1 or game['bullets'][index]['pos']['y'] > height - 1 or game['bullets'][index]['pos']['x'] <= 0:
+      if game['bullets'][index]['pos']['y'] <= 0 or game['bullets'][index]['pos']['x'] >= width - 1 or game['bullets'][index]['pos']['y'] >= height - 1 or game['bullets'][index]['pos']['x'] <= 0:
         game['bullets'][index] = -1
       else:
-        if any([game['bullets'][index]['pos']['x'], game['bullets'][index]['pos']['y']] == wall for wall in walls):
+        if any([game['bullets'][index]['pos']['x'], game['bullets'][index]['pos']['y']] == wall for wall in game['walls']):
           game['bullets'][index] = -1
 
     game['bullets'] = [item for item in game['bullets'] if
