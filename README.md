@@ -1,6 +1,6 @@
 # Text MOBA
 
-A text-based game created with python curses library. Supports custom map importing and multiplayer up to 4 players. Note that curses library does not have Windows version. To play on Windows you need virtual machine or linux subsystem.
+A text-based game created with python curses library. Supports custom map importing and multiplayer. Note that curses library does not have Windows version. To play on Windows you need virtual machine or linux subsystem.
 
 ## To get started:
 
