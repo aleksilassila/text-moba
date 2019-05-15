@@ -14,7 +14,7 @@ Import map from image: `python3.7 server/image_to_map.py [input.png] [output.jso
 
 ## Screenshots
 
-![](/screenshots/large_map.png?raw=true "Play with as many friends as you like")
+![](/screenshots/bigger_maps.png?raw=true "Play with as many friends as you like")
 ![](/screenshots/game.png?raw=true)
 
 ## Upcoming features
