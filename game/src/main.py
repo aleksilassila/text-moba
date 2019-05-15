@@ -16,8 +16,15 @@ game.connect()
 
 while game.game == {}:
   time.sleep(0.2)
+  print('waiting')
 
-game.draw()
+windowSize = s.getmaxyx()
+
+if windowSize[0] < game.size[0] or windowSize[1] < game.size[1]:
+  s.refresh()
+  curses.endwin()
+  print(f'Sorry, your terminal window has to be at least {game.size[1]}x{game.size[0]}.')
+  sys.exit()
 
 while True:
   try:
@@ -45,7 +52,7 @@ while True:
       game.shoot(3)
 
     game.draw()
-  except KeyboardInterrupt:
+  except:
     break
 
 s.refresh()

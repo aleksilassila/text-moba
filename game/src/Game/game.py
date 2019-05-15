@@ -1,5 +1,5 @@
 import socket, json, threading, curses, sys
-# SCOREBOARD AND OVER 4 PLAYERS
+
 class Game:
   def __init__(self, host, port):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -35,8 +35,8 @@ class Game:
           data = json.loads(message[:-1])
           break
 
-    self.playerid = data['id']
     self.size = (data['h'], data['w'])
+    self.playerid = data['id']
     self.walls = data['walls']
 
     self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
