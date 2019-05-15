@@ -1,5 +1,5 @@
 import socket, json, threading, curses, sys
-
+# SCOREBOARD AND OVER 4 PLAYERS
 class Game:
   def __init__(self, host, port):
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -62,17 +62,35 @@ class Game:
     self.window.erase()
     self.window.border(0) # Draw border
 
-    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} ')
+    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} – Your score: {self.game["players"][self.playerid]["s"]} ')
 
     for bullet in self.game['bullets']: # Bullets
       self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+
+    toplist = []
 
     for index in range(0, len(self.game['players'])): # Players
       player = self.game['players'][index]
 
       if not player == None:
         self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
-        self.window.addstr(self.size[0] - 1, 2 + (index * 14), f' Player {player["c"]}: {player["s"]} ')
+        toplist.append((player['s'], index))
+
+    toplist = sorted(toplist, reverse = True)
+
+    # Draw scores
+    self.window.addstr(self.size[0] - 1, 2, ' Top 4 ')
+    for index in range(0, len(toplist)):
+      score = toplist[index]
+      
+      if index > 3:
+        break
+
+      self.window.addstr(
+        self.size[0] - 1,
+        10 + (index * 15),
+        f' Player {self.game["players"][toplist[index][1]]["c"]}: {toplist[index][0]} '
+      )
 
     for wall in self.walls:
       self.window.addch(wall[1], wall[0], '▓')

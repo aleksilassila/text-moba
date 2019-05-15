@@ -1,9 +1,14 @@
-import threading, socket, json, time, random, sys
+import threading, socket, json, time, random, sys, argparse
 
-clients = [None, None, None, None]
+width = 80
+height = 24
+
+ids = ['#', '@', '&', '+', '%', '$', '£']
+
+clients = []
 
 game = {
-  'players': [None, None, None, None],
+  'players': [],
   'bullets': [],
   'walls': []
 }
@@ -16,19 +21,26 @@ game = {
 }
 """
 
-width = 80
-height = 24
+parser = argparse.ArgumentParser(description = 'Server for Text-MOBA')
+parser.add_argument('address', help = 'Server bind address: [ip]:[port]')
+parser.add_argument('-p', '--players', type = int, help = 'Max players')
+parser.add_argument('-m', '--map', help = 'Json file containing map')
+parser.add_argument('-b', '--bullets', type = int, help = 'Set max bullets in air per player')
+args = parser.parse_args()
 
-if len(sys.argv) <= 1 or sys.argv[1] == '--help' or sys.argv[1] == '-h':
-  print('Server takes bind address as first argument [ip:port] and map file as second argument (defaults to map.json)')
-  sys.exit()
-else:
-  ip, port = sys.argv[1].split(":")
-  mapFile = 'map.json' if not len(sys.argv) > 2 else sys.argv[2]
-  with open(mapFile) as f:
-    mapData = json.load(f)
-    game['walls'] = mapData['walls']
-    width, height = mapData['size']
+ip, port = args.address.split(":")
+mapFile = 'map.json' if not args.map else args.map
+maxPlayers = 4 if not args.players else args.players
+maxBullets = 15 if not args.bullets else args.bullets
+
+with open(mapFile) as f:
+  mapData = json.load(f)
+  game['walls'] = mapData['walls']
+  width, height = mapData['size']
+
+for index in range(0,maxPlayers): # Create player spots in game and client objects
+  game['players'].append(None)
+  clients.append(None)
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((ip, int(port)))
@@ -53,12 +65,14 @@ def acceptClients():
       print(f'Connection from {address}. Assigning to player {playerid}')
       clientsocket.send(bytes(json.dumps({'id': playerid, 'w': width, 'h': height, 'walls': game['walls']}) + ";", 'utf-8'))
 
-      ids = ['#', '@', '&', '+']
-
+      if playerid + 1 > len(ids):
+        playerChar = 65 + playerid - len(ids)
+      else:
+        playerChar = ids[playerid]
       if not playerid == -1:
         game['players'][playerid] = {
           'pos': {'x': random.randint(1, width - 2), 'y': random.randint(1, height - 2)},
-          'c': ids[playerid], # Character
+          'c': playerChar, # Character
           's': 0, # Score
           'd': 0 # Is dead
         }
@@ -82,7 +96,7 @@ def listenToPlayer(clientsocket, playerid):
           if data[-1] == ";":
             break
       except:
-        print(f'Player {playerid}: Error')
+        print(f'Player {playerid}: Disconnected')
         game['players'][playerid] = None
         clients[playerid] = None
         clientsocket.close()
@@ -106,6 +120,12 @@ def listenToPlayer(clientsocket, playerid):
             pos['x'] -= 1
 
         if action == 's':
+          bulletsCount = 0
+          for bullet in game['bullets']:
+            if bullet['id'] == playerid:
+              bulletsCount += 1
+
+          if bulletsCount < maxBullets:
             game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload, 'id': playerid})
 
       except:
