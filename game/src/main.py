@@ -51,8 +51,11 @@ while True:
     elif key == curses.KEY_LEFT:
       game.shoot(3)
 
+    if key == 32: #Space, Shoot rocket
+      game.shoot(game.facing, rocket = True)
+
     game.draw()
-  except:
+  except KeyboardInterrupt:
     break
 
 s.refresh()

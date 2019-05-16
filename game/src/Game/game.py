@@ -8,16 +8,23 @@ class Game:
     self.playerid = 0
     self.game = {}
     self.walls = []
+    self.facing = 0
 
   def move(self, direction):
     try:
       self.s.send(bytes(json.dumps({'a': 'm', 'p': direction}) + ";", "utf-8")) # Action: Move, payload: direction
+      self.facing = direction
     except:
       pass
 
-  def shoot(self, direction):
+  def shoot(self, direction, rocket = False):
+    bullet = {'a': 's', 'p': [direction, 0]} # Action: shoot, payload: [direction, isRocket]
+    
+    if rocket:
+      bullet['p'][1] = 1
+
     try:
-      self.s.send(bytes(json.dumps({'a': 's', 'p': direction}) + ";", "utf-8")) # Action: shoot, payload: direction
+      self.s.send(bytes(json.dumps(bullet) + ";", "utf-8"))
     except:
       pass
 
@@ -62,10 +69,9 @@ class Game:
     self.window.erase()
     self.window.border(0) # Draw border
 
-    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} – Your score: {self.game["players"][self.playerid]["s"]} ')
-
     for bullet in self.game['bullets']: # Bullets
-      self.window.addch(bullet['pos']['y'], bullet['pos']['x'], '.')
+      char = '•' if bullet['r'] else '.'
+      self.window.addch(bullet['pos']['y'], bullet['pos']['x'], char)
 
     toplist = []
 
@@ -75,6 +81,32 @@ class Game:
       if not player == None:
         self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
         toplist.append((player['s'], index))
+
+    for explosion in self.game['exps']:
+      x = explosion['x']
+      y = explosion['y']
+
+      areaOfEfect = [
+        [x, y],
+        [x, y - 1],
+        [x + 1, y - 1],
+        [x + 1, y],
+        [x + 1, y + 1],
+        [x, y + 1],
+        [x - 1, y + 1],
+        [x - 1, y],
+        [x - 1, y - 1],
+        [x + 2, y],
+        [x - 2, y],
+        [x, y - 2],
+        [x, y + 2]
+      ]
+
+      for tile in areaOfEfect:
+        if tile[0] >= 0 and tile[0] <= self.size[1] - 1 and tile[1] >= 0 and tile[1] <= self.size[0] - 1:
+          self.window.addch(tile[1], tile[0], '░')
+
+    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} – Your score: {self.game["players"][self.playerid]["s"]} ')
 
     toplist = sorted(toplist, reverse = True)
 

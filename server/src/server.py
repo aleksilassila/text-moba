@@ -10,7 +10,8 @@ clients = []
 game = {
   'players': [],
   'bullets': [],
-  'walls': []
+  'walls': [],
+  'exps': []
 }
 
 """ Example
@@ -25,13 +26,15 @@ parser = argparse.ArgumentParser(description = 'Server for Text-MOBA')
 parser.add_argument('address', help = 'Server bind address: [ip]:[port]')
 parser.add_argument('-p', '--players', type = int, help = 'Max players')
 parser.add_argument('-m', '--map', help = 'Json file containing map')
-parser.add_argument('-b', '--bullets', type = int, help = 'Set max bullets in air per player')
+parser.add_argument('-b', '--bullets', type = int, help = 'Set max bullets in air per player, 0 to disable')
+parser.add_argument('-r', '--rockets', type = int, help = 'Set max rockets in air per player, 0 to disable')
 args = parser.parse_args()
 
 ip, port = args.address.split(":")
 mapFile = '../map.json' if not args.map else args.map
 maxPlayers = 4 if not args.players else args.players
-maxBullets = 15 if not args.bullets else args.bullets
+maxBullets = 15 if args.bullets == None else args.bullets
+maxRockets = 1 if args.rockets == None else args.rockets
 
 with open(mapFile) as f:
   mapData = json.load(f)
@@ -120,21 +123,62 @@ def listenToPlayer(clientsocket, playerid):
             pos['x'] -= 1
 
         if action == 's':
-          bulletsCount = 0
+          bulletsCount = [0, 0] # Bullets, rockets
           for bullet in game['bullets']:
             if bullet['id'] == playerid:
-              bulletsCount += 1
+              if bullet['r']:
+                bulletsCount[1] += 1
+              else:
+                bulletsCount[0] += 1
 
-          if bulletsCount < maxBullets:
-            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload, 'id': playerid})
+          if bulletsCount[0] < maxBullets and not payload[1]:
+            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload[0], 'id': playerid, 'r': payload[1]})
+          elif bulletsCount[1] < maxRockets and payload[1]:
+            game['bullets'].append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload[0], 'id': playerid, 'r': payload[1]})
 
       except:
         pass
 
 threading.Thread(target = acceptClients, daemon = True).start()
 
+def explode(pos, bulletid): # pos = [x,y]
+  x = pos['x']
+  y = pos['y']
+
+  areaOfEfect = [
+    [x, y],
+    [x, y - 1],
+    [x + 1, y - 1],
+    [x + 1, y],
+    [x + 1, y + 1],
+    [x, y + 1],
+    [x - 1, y + 1],
+    [x - 1, y],
+    [x - 1, y - 1],
+    [x + 2, y],
+    [x - 2, y],
+    [x, y - 2],
+    [x, y + 2]
+  ]
+
+  for index in range(0, len(game['players'])):
+    player = game['players'][index]
+
+    if not player == None and any([player['pos']['x'], player['pos']['y']] == item for item in areaOfEfect):
+      player['pos'] = {
+        'x': random.randint(1, width - 2),
+        'y': random.randint(1, height - 2)
+      }
+
+      if bulletid == index:
+        player['s'] -= 1
+      else:
+        game['players'][bulletid]['s'] += 1
+
+  game['exps'].append(pos)
+
 while True: # Update clients
-  try:
+  try: # Sorry for the mess
     for bullet in game['bullets']: # Move bullets
       if bullet['dir'] == 0:
         bullet['pos']['y'] -= 1
@@ -145,15 +189,26 @@ while True: # Update clients
       elif bullet['dir'] == 3:
         bullet['pos']['x'] -= 1
 
+    for index in range(0, len(game['exps'])): # Remove explosions
+      if random.randint(1, 100) > 90: # 10% change to clear explosion per tick
+        game['exps'][index] = -1
+
+    game['exps'] = [item for item in game['exps'] if not item == -1]
+
     for index in range(0, len(game['bullets'])): # Mark bullets to be removed
       if game['bullets'][index]['pos']['y'] <= 0 or game['bullets'][index]['pos']['x'] >= width - 1 or game['bullets'][index]['pos']['y'] >= height - 1 or game['bullets'][index]['pos']['x'] <= 0:
-        game['bullets'][index] = -1
-      else:
-        if any([game['bullets'][index]['pos']['x'], game['bullets'][index]['pos']['y']] == wall for wall in game['walls']):
-          game['bullets'][index] = -1
+        if game['bullets'][index]['r']:
+          explode(game['bullets'][index]['pos'], game['bullets'][index]['id'])
 
-    game['bullets'] = [item for item in game['bullets'] if
-      not item == -1] # Remove bullets
+        game['bullets'][index]['pos'] = -1 # Collision with borders
+
+      elif any([game['bullets'][index]['pos']['x'], game['bullets'][index]['pos']['y']] == wall for wall in game['walls']):
+        if game['bullets'][index]['r']:
+          explode(game['bullets'][index]['pos'], game['bullets'][index]['id'])
+
+        game['bullets'][index]['pos'] = -1 # Collision with walls
+
+    game['bullets'] = [item for item in game['bullets'] if not item['pos'] == -1] # Remove bullets
 
     for index in range(0, len(game['players'])): # Check if player dies
       player = game['players'][index]
