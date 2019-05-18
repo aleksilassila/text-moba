@@ -45,7 +45,7 @@ class Game:
         print(f'Connection from {address} rejected.')
       else:
         print(f'Connection from {address}. Assigning to player {playerid}')
-        initData = {'id': playerid, 'w': self.width, 'h': self.height, 'walls': self.walls}
+        initData = {'id': playerid, 'w': self.width, 'h': self.height, 'walls': self.walls, 't': self.tickrate}
 
         clientsocket.send(bytes(json.dumps(initData) + ";", 'utf-8'))
         self.players[playerid] = Player(clientsocket, initData)

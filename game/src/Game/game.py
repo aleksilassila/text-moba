@@ -45,10 +45,11 @@ class Game:
     self.size = (data['h'], data['w'])
     self.playerid = data['id']
     self.walls = data['walls']
+    self.tickrate = data['t']
 
     self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
     self.window.keypad(1)
-    self.window.timeout(100)
+    self.window.timeout(1000 / tickrate)
 
     threading.Thread(target = self.update, daemon = True).start()
     # except:
