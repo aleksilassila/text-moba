@@ -16,7 +16,6 @@ game.connect()
 
 while game.game == {}:
   time.sleep(0.2)
-  print('waiting')
 
 windowSize = s.getmaxyx()
 

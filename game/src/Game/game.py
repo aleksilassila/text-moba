@@ -104,7 +104,8 @@ class Game:
 
       for tile in areaOfEfect:
         if tile[0] >= 0 and tile[0] <= self.size[1] - 1 and tile[1] >= 0 and tile[1] <= self.size[0] - 1:
-          self.window.addch(tile[1], tile[0], '░')
+          if not [tile[0], tile[1]] == [self.size[1] - 1, self.size[0] - 1]:
+            self.window.addch(tile[1], tile[0], '░')
 
     self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} – Your score: {self.game["players"][self.playerid]["s"]} ')
 
