@@ -2,11 +2,13 @@ import random, threading, json, socket
 from player import Player
 
 class Game:
-  def __init__(self, ip, port):
+  def __init__(self, ip, port, args):
     self.players = []
     self.bullets = []
     self.walls = []
     self.exps = []
+
+    self.winner = [-1, 0] # [playerid, score]
     """ Example
     game = {
       'players': [{pos: {x: 5, y: 5}, c: character, s: score, d: dead}, None, None, None],
@@ -15,18 +17,23 @@ class Game:
     }
     """
 
-    self.width = 80
-    self.height = 24
-
-    self.maxPlayers = 0
-    self.maxBullets = 0
-    self.maxRockets = 0
-
-    self.tickrate = 10
+    self.maxPlayers = args.players
+    self.maxBullets = args.bullets
+    self.maxRockets = args.rockets
+    self.tickrate = args.tickrate
+    self.gamemode = args.gamemode
 
     self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.s.bind((ip, int(port)))
     self.s.listen(16)
+
+    with open(args.map) as data:
+      mapData = json.load(data)
+      self.walls = mapData['walls']
+      self.width, self.height = mapData['size']
+
+    for index in range(0, self.maxPlayers): # Create player spots in game object
+      self.players.append(None)
 
   def acceptClients(self):
     while True:
@@ -45,7 +52,7 @@ class Game:
         print(f'Connection from {address} rejected.')
       else:
         print(f'Connection from {address}. Assigning to player {playerid}')
-        initData = {'id': playerid, 'w': self.width, 'h': self.height, 'walls': self.walls, 't': self.tickrate}
+        initData = {'id': playerid, 'w': self.width, 'h': self.height, 'walls': self.walls, 't': self.tickrate, 'g':self.gamemode}
 
         clientsocket.send(bytes(json.dumps(initData) + ";", 'utf-8'))
         self.players[playerid] = Player(clientsocket, initData)
@@ -76,33 +83,34 @@ class Game:
         break
 
       try:
-        data = json.loads(data[:-1])
-        action = data['a']
-        payload = data['p']
+        if not player.state['d']:
+          data = json.loads(data[:-1])
+          action = data['a']
+          payload = data['p']
 
-        pos = player.state['pos']
+          pos = player.state['pos']
+          
+          if action == 'm': # Move
+            if payload == 0 and pos['y'] - 1 > 0 and not any([pos['x'], pos['y'] - 1] == wall for wall in self.walls): # Up
+              pos['y'] -= 1
+            if payload == 1 and pos['x'] + 1 < self.width - 1 and not any([pos['x'] + 1, pos['y']] == wall for wall in self.walls): # Right
+              pos['x'] += 1
+            if payload == 2 and pos['y'] + 1 < self.height - 1 and not any([pos['x'], pos['y'] + 1] == wall for wall in self.walls): # Down
+              pos['y'] += 1
+            if payload == 3 and pos['x'] - 1 > 0 and not any([pos['x'] - 1, pos['y']] == wall for wall in self.walls): # Left
+              pos['x'] -= 1
 
-        if action == 'm': # Move
-          if payload == 0 and pos['y'] - 1 > 0 and not any([pos['x'], pos['y'] - 1] == wall for wall in self.walls): # Up
-            pos['y'] -= 1
-          if payload == 1 and pos['x'] + 1 < self.width - 1 and not any([pos['x'] + 1, pos['y']] == wall for wall in self.walls): # Right
-            pos['x'] += 1
-          if payload == 2 and pos['y'] + 1 < self.height - 1 and not any([pos['x'], pos['y'] + 1] == wall for wall in self.walls): # Down
-            pos['y'] += 1
-          if payload == 3 and pos['x'] - 1 > 0 and not any([pos['x'] - 1, pos['y']] == wall for wall in self.walls): # Left
-            pos['x'] -= 1
+          if action == 's':
+            bulletsCount = [0, 0] # Bullets, rockets
+            for bullet in self.bullets:
+              if bullet['id'] == playerid:
+                if bullet['r']:
+                  bulletsCount[1] += 1
+                else:
+                  bulletsCount[0] += 1
 
-        if action == 's':
-          bulletsCount = [0, 0] # Bullets, rockets
-          for bullet in self.bullets:
-            if bullet['id'] == playerid:
-              if bullet['r']:
-                bulletsCount[1] += 1
-              else:
-                bulletsCount[0] += 1
-
-          if (bulletsCount[0] < self.maxBullets and not payload[1]) or (bulletsCount[1] < self.maxRockets and payload[1]):
-            self.bullets.append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload[0], 'id': playerid, 'r': payload[1]})
+            if (bulletsCount[0] < self.maxBullets and not payload[1]) or (bulletsCount[1] < self.maxRockets and payload[1]):
+              self.bullets.append({'pos': { 'x': pos['x'], 'y': pos['y'] }, 'dir': payload[0], 'id': playerid, 'r': payload[1]})
 
       except:
         pass
@@ -173,19 +181,50 @@ class Game:
 
     self.bullets = [item for item in self.bullets if not item['pos'] == -1] # Remove bullets
 
-  def killPlayers(self):
+  def updatePlayers(self):
+    winner = [-1, 0] # potential winner
+
     for index in range(0, len(self.players)): # Check if player dies
       player = self.players[index]
 
       if player:
         for bullet in self.bullets:
           if player.state['pos'] == bullet['pos'] and not bullet['id'] == index:
-            player.spawnPlayer()
-            self.players[bullet['id']].state['s'] += 1 # Give a point
+            try:
+              self.players[bullet['id']].state['s'] += 1 # Give a point
+
+              if self.gamemode == 'ffa':
+                player.spawnPlayer()
+
+              elif self.gamemode == 'br':
+                self.players[index].state['d'] = 1 # make player dead
+                winner[0] = bullet['id']
+                winner[1] = self.players[bullet['id']].state['s']
+            except:
+              pass
+
+    if self.gamemode == 'br':
+      playersAlive = len([player for player in self.players if player and not player.state['d']])
+      playersTotal = len([player for player in self.players if player])
+      
+      if not playersTotal == 1 and playersAlive == 1: # If game has ended
+        self.bullets = []
+
+        for index in range(0, len(self.players)):
+          if self.players[index]:
+            self.players[index].spawnPlayer()
+            self.players[index].state['s'] = self.players[index].state['d'] = 0
+
+        self.winner = winner
 
   def updateClients(self):
-    players = [item.state for item in self.players if item]
+    players = []
+
+    for index in range(0, len(self.players)):
+      player = self.players[index]
+
+      players.append(player.state if player else None)
 
     for player in self.players:
       if player:
-        player.clientsocket.send(bytes(json.dumps({'players': players, 'bullets': self.bullets, 'walls': self.walls, 'exps': self.exps}) + ";", 'utf-8'))
+        player.clientsocket.send(bytes(json.dumps({'p': players, 'b': self.bullets, 'e': self.exps, 'w': self.winner}) + ";", 'utf-8'))

@@ -17,8 +17,8 @@ class Player:
     self.state = {
       'pos': {},
       'c': playerChar, # Character
-      's': 0 # Score
-      #'d': 0 # Is dead
+      's': 0, # Score
+      'd': 0 # Is dead
     }
 
     self.spawnPlayer()

@@ -16,10 +16,3 @@ Import map from image: `python3.7 server/image_to_map.py [input.png] [output.jso
 
 ![](/screenshots/bigger_maps.png?raw=true "Play with as many friends as you like")
 ![](/screenshots/game.png?raw=true)
-
-## Upcoming features
-
-* Host will be able to issue commands and events
-* Diffrent guns
-* Spectator mode
-* Different game modes

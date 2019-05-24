@@ -30,28 +30,29 @@ class Game:
 
   def connect(self):
     # try:
-    self.s.connect(self.address)
-    message = ""
-    while True:
-      message += self.s.recv(1).decode('utf-8')
-      if message[-1] == ";":
-        if message[:-1] == 'full':
-          print('Session is full.')
-          sys.exit()
-        else:
-          data = json.loads(message[:-1])
-          break
+      self.s.connect(self.address)
+      message = ""
+      while True:
+        message += self.s.recv(1).decode('utf-8')
+        if message[-1] == ";":
+          if message[:-1] == 'full':
+            print('Session is full.')
+            sys.exit()
+          else:
+            data = json.loads(message[:-1])
+            break
 
-    self.size = (data['h'], data['w'])
-    self.playerid = data['id']
-    self.walls = data['walls']
-    self.tickrate = data['t']
+      self.size = (data['h'], data['w'])
+      self.playerid = data['id']
+      self.walls = data['walls']
+      self.tickrate = data['t']
+      self.gamemode = data['g']
 
-    self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
-    self.window.keypad(1)
-    self.window.timeout(1000 / tickrate)
+      self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
+      self.window.keypad(1)
+      self.window.timeout(round(1000 / self.tickrate))
 
-    threading.Thread(target = self.update, daemon = True).start()
+      threading.Thread(target = self.update, daemon = True).start()
     # except:
     #   print('Error while connecting')
 
@@ -70,20 +71,20 @@ class Game:
     self.window.erase()
     self.window.border(0) # Draw border
 
-    for bullet in self.game['bullets']: # Bullets
+    toplist = []
+
+    for bullet in self.game['b']: # Bullets
       char = '•' if bullet['r'] else '.'
       self.window.addch(bullet['pos']['y'], bullet['pos']['x'], char)
 
-    toplist = []
+    for index in range(0, len(self.game['p'])): # Players
+      player = self.game['p'][index]
 
-    for index in range(0, len(self.game['players'])): # Players
-      player = self.game['players'][index]
-
-      if not player == None:
+      if not player == None and not player['d']:
         self.window.addch(player['pos']['y'], player['pos']['x'], player['c'])
         toplist.append((player['s'], index))
 
-    for explosion in self.game['exps']:
+    for explosion in self.game['e']:
       x = explosion['x']
       y = explosion['y']
 
@@ -107,24 +108,32 @@ class Game:
         if tile[0] >= 0 and tile[0] <= self.size[1] - 1 and tile[1] >= 0 and tile[1] <= self.size[0] - 1:
           if not [tile[0], tile[1]] == [self.size[1] - 1, self.size[0] - 1]:
             self.window.addch(tile[1], tile[0], '░')
-
-    self.window.addstr(0, 2, f' Text MOBA – {self.address[0]}:{self.address[1]} – Your score: {self.game["players"][self.playerid]["s"]} ')
+    gamemodeStr = 'Battle Royale' if self.gamemode == 'br' else 'FFA'
+    self.window.addstr(0, 2, f' Text MOBA: {gamemodeStr} @ {self.address[0]}:{self.address[1]} ─ Your score: {self.game["p"][self.playerid]["s"]} ')
 
     toplist = sorted(toplist, reverse = True)
 
     # Draw scores
-    self.window.addstr(self.size[0] - 1, 2, ' Top 4 ')
-    for index in range(0, len(toplist)):
-      score = toplist[index]
-      
-      if index > 3:
-        break
+    if self.gamemode == 'ffa':
+      self.window.addstr(self.size[0] - 1, 2, ' Top 4 ')
+      for index in range(0, len(toplist)):
+        score = toplist[index]
+        
+        if index > 3:
+          break
 
+        self.window.addstr(
+          self.size[0] - 1,
+          10 + (index * 14),
+          f' Player {self.game["p"][toplist[index][1]]["c"]}: {toplist[index][0]} '
+        )
+
+    elif self.gamemode == 'br' and not self.game['w'][0] == -1 and self.game['p'][self.game['w'][0]]:
       self.window.addstr(
-        self.size[0] - 1,
-        10 + (index * 15),
-        f' Player {self.game["players"][toplist[index][1]]["c"]}: {toplist[index][0]} '
-      )
+          self.size[0] - 1,
+          2,
+          f' Winner: {self.game["p"][self.game["w"][0]]["c"]} with {self.game["w"][1]} points '
+        )
 
     for wall in self.walls:
       self.window.addch(wall[1], wall[0], '▓')
