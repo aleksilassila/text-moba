@@ -1,60 +1,61 @@
-import curses, time, sys
-from Game.game import Game
+import curses, sys, threading
 
-if len(sys.argv) <= 1:
-  print('Host address is required as an argument [ip:port]')
-  sys.exit()
-else:
-  ip, port = sys.argv[1].split(":")
+from Game.game import Game
+from Server.server import Server
+from Ui.ui import Ui
 
 s = curses.initscr()
-curses.curs_set(0)
-curses.noecho()
 
-game = Game(ip, int(port))
-game.connect()
+uiState = -1
+uiError = ''
 
-while game.game == {}:
-  time.sleep(0.2)
-
-windowSize = s.getmaxyx()
-
-if windowSize[0] < game.size[0] or windowSize[1] < game.size[1]:
-  s.refresh()
-  curses.endwin()
-  print(f'Sorry, your terminal window has to be at least {game.size[1]}x{game.size[0]}.')
-  sys.exit()
 
 while True:
-  try:
-    key = game.window.getch()
+  ui = Ui(uiState, uiError)
+  uiError = ''
 
-    if key == 27: # Quit if esc
-      break
+  if ui.ip: # If connectin to a game
+    try:
+      game = Game(ui.ip[0], int(ui.ip[1]))
+      game.connect()
 
-    if key == 87 or key == 119: # w/W, Move
-      game.move(0)
-    elif key == 68 or key == 100: # d/D
-      game.move(1)
-    elif key == 83 or key == 115: # s/S
-      game.move(2)
-    elif key == 65 or key == 97: # a/A
-      game.move(3)
-    
-    if key == curses.KEY_UP: # Shoot
-      game.shoot(0)
-    elif key == curses.KEY_RIGHT:
-      game.shoot(1)
-    elif key == curses.KEY_DOWN:
-      game.shoot(2)
-    elif key == curses.KEY_LEFT:
-      game.shoot(3)
+      windowSize = s.getmaxyx()
 
-    if key == 32: #Space, Shoot rocket
-      game.shoot(game.facing, rocket = True)
+      if windowSize[0] < game.size[0] or windowSize[1] < game.size[1]:
+        uiError = f' Sorry, your terminal window has to be at least {game.size[1]}x{game.size[0]}. '
+        uiState = -1
 
-    game.draw()
-  except KeyboardInterrupt:
+      else:
+        game.start()
+        break
+
+    except:
+      uiError = ' Error: Connection refused '
+      uiState = -1
+
+  elif ui.bind: # If hosting a game
+    # try:
+    if ui.payload[3]['boolean']:
+      gamemode = 'ffa'
+    elif ui.payload[4]['boolean']:
+      gamemode = 'br'
+
+    Server(
+      ui.bind[0], ui.bind[1],
+      {
+        'gamemode': gamemode,
+        'players': ui.payload[6]['value'],
+        'bullets': ui.payload[7]['value'],
+        'rockets': ui.payload[8]['value'],
+        'tickrate': ui.payload[10]['value']
+      }
+    )
+    break
+    # except:
+    #   uiError = ' Error: Unable to bind server to given address '
+    #   uiState = 1
+
+  else:
     break
 
 s.refresh()

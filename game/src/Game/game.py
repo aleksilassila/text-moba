@@ -1,4 +1,6 @@
-import socket, json, threading, curses, sys
+import socket, json, curses, sys
+from time import sleep
+from threading import Thread
 
 class Game:
   def __init__(self, host, port):
@@ -29,32 +31,68 @@ class Game:
       pass
 
   def connect(self):
-    # try:
-      self.s.connect(self.address)
-      message = ""
-      while True:
-        message += self.s.recv(1).decode('utf-8')
-        if message[-1] == ";":
-          if message[:-1] == 'full':
-            print('Session is full.')
-            sys.exit()
-          else:
-            data = json.loads(message[:-1])
-            break
+    self.s.connect(self.address)
+    message = ""
+    while True:
+      message += self.s.recv(1).decode('utf-8')
+      if message[-1] == ";":
+        if message[:-1] == 'full':
+          print('Session is full.')
+          sys.exit()
+        else:
+          data = json.loads(message[:-1])
+          break
 
-      self.size = (data['h'], data['w'])
-      self.playerid = data['id']
-      self.walls = data['walls']
-      self.tickrate = data['t']
-      self.gamemode = data['g']
+    self.size = (data['h'], data['w'])
+    self.playerid = data['id']
+    self.walls = data['walls']
+    self.tickrate = data['t']
+    self.gamemode = data['g']
 
-      self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
-      self.window.keypad(1)
-      self.window.timeout(round(1000 / self.tickrate))
+    self.window = curses.newwin(self.size[0], self.size[1], 0, 0)
+    self.window.keypad(1)
+    self.window.timeout(round(1000 / self.tickrate))
 
-      threading.Thread(target = self.update, daemon = True).start()
-    # except:
-    #   print('Error while connecting')
+  def start(self):
+    self.listen()
+    self.getPlayerInput()
+
+  def listen(self):
+    Thread(target = self.update, daemon = True).start()
+
+  def getPlayerInput(self):
+    while self.game == {}:
+      sleep(0.2)
+
+    while True:
+      try:
+        key = self.window.getch()
+
+        if key == 87 or key == 119: # w/W, Move
+          self.move(0)
+        elif key == 68 or key == 100: # d/D
+          self.move(1)
+        elif key == 83 or key == 115: # s/S
+          self.move(2)
+        elif key == 65 or key == 97: # a/A
+          self.move(3)
+        
+        if key == curses.KEY_UP: # Shoot
+          self.shoot(0)
+        elif key == curses.KEY_RIGHT:
+          self.shoot(1)
+        elif key == curses.KEY_DOWN:
+          self.shoot(2)
+        elif key == curses.KEY_LEFT:
+          self.shoot(3)
+
+        if key == 32: #Space, Shoot rocket
+          self.shoot(self.facing, rocket = True)
+
+        self.draw()
+
+      except KeyboardInterrupt:
+        break
 
   def update(self): # Update positions
     message = ""
