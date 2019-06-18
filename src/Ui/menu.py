@@ -1,6 +1,5 @@
 import curses
 from time import sleep
-from threading import Thread
 
 class Menu:
   def __init__(self, menu, height, width, y, x, message = None, help = None):
@@ -19,26 +18,18 @@ class Menu:
     self.selection = 0
 
   def prompt(self):
-    # self.w.addch(0, 0, "┌")
-    # self.w.addch(0, self.width - 1, "┐")
-    # self.w.addch(self.height - 1, 0, "└")
-    # self.w.addch(self.height, self.width, "┘")
-
     if self.message:
       self.w.addstr(0, 1, self.message)
     
     self.w.timeout(-1)
     curses.echo()
     
-    # try:
-    prompt = self.w.getstr(1, 2, 22).decode('utf-8').split(":")
-    # except KeyboardInterrupt:
-      # prompt =  None
+    prompt = self.w.getstr(1, 2, 22)
 
     self.w.timeout(100)
     curses.noecho()
 
-    return prompt
+    return prompt.decode("utf-8").split(":")
 
   def createMenu(self):
     # try:
@@ -97,6 +88,7 @@ class Menu:
     #   self.selection = -1
 
   def draw(self):
+    self.w.erase()
     self.w.border(0)
     for index in range(0, len(self.menu)):
       item = self.menu[index]
@@ -113,11 +105,13 @@ class Menu:
     label = self.menu[self.selection]['Label']
     index = self.selection
 
-    self.menu[index]['Label'] = '          '
-    self.draw()
-    self.w.refresh()
-    sleep(0.2)
-    self.menu[index]['Label'] = label
-    self.draw()
-    self.w.refresh()
-    sleep(0.2)
+    for i in range(2):
+      self.menu[index]['Label'] = ''
+      self.draw()
+      self.w.refresh()
+      sleep(0.15)
+
+      self.menu[index]['Label'] = label
+      self.draw()
+      self.w.refresh()
+      sleep(0.15)

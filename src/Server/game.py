@@ -3,6 +3,8 @@ from Server.player import Player
 
 class Game:
   def __init__(self, ip, port, config):
+    self.ip = ip
+    self.port = port
     self.players = []
     self.bullets = []
     self.walls = []
@@ -48,13 +50,16 @@ class Game:
     self.w.timeout(100)
     self.w.erase()
     self.w.border(0)
+    self.logs.append('Server succesfully created.')
+
     while True:
       self.w.erase()
       self.w.border(0)
+      self.w.addstr(0, 2, f' Listening on address {self.ip}:{self.port} ')
       try:
         self.logs = self.logs[-22:]
         for index in range(0, len(self.logs)):
-            self.w.addstr(1 + index, 1, self.logs[index])
+            self.w.addstr(1 + index, 2, self.logs[index])
       except:
         pass
       

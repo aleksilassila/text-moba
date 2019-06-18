@@ -1,5 +1,4 @@
-import curses, time
-from threading import Thread
+import curses, sys
 
 from Ui.menu import Menu
 
@@ -19,7 +18,6 @@ class Ui:
 
     self.w = curses.newwin(24, 80, 0, 0)
     self.w.timeout(0)
-    self.w.keypad(1)
 
     self.mainMenu = [
       {'Label': 'Join a game', 'selectable': 1},
@@ -42,49 +40,41 @@ class Ui:
       {'Label': 'Continue', 'selectable': 1}
     ]
 
-    while True:
-      if self.state == -2:
-        break
+    if self.state == -1:
+      try:
+        self.drawBackground()
+        self.w.getch()
+        m = Menu(self.mainMenu, 4, 19, 15, (80 - 19)//2)
+        m.createMenu()
+        self.state = m.selection
+      except KeyboardInterrupt:
+        sys.exit()
 
-      elif self.state == -1:
-        try:
-          self.drawBackground()
-          self.w.getch()
-          m = Menu(self.mainMenu, 4, 19, 15, (80 - 19)//2)
-          m.createMenu()
-          self.state = m.selection
-        except KeyboardInterrupt:
-          break
-
-      elif self.state == 0:
-        try:
-          # self.drawBackground()
-          self.w.erase()
-          self.w.getch()
-          m = Menu(None, 3, 24, 12, (80 - 24)//2, message = ' Join a server: ')
-          self.ip = m.prompt()
-          break
-          # self.drawJoin()
-        except KeyboardInterrupt:
-          self.state = -1
-
-      elif self.state == 1:
-        try:
-          m = Menu(self.hostMenu, 24, 80, 0, 0, help = '  Move: ↓↑ ─ Adjust sliders: ←→ ─ Select: Enter ─ Back: Ctrl + C  ')
-          m.createMenu()
-
-          if not m.selection == -1:
-            p = Menu(None, 3, 27, 15, 2, message = ' Enter a bind address: ')
-            self.bind = p.prompt()
-            self.payload = m.menu
-            break
-          else:
-            self.state = -1
-        except KeyboardInterrupt:
-          self.state = -1
-
-      else:
+    elif self.state == 0:
+      try:
+        self.w.erase()
+        self.w.getch()
+        m = Menu(None, 3, 24, 12, (80 - 24)//2, message = ' Join a server: ')
+        self.ip = m.prompt()
+      except KeyboardInterrupt:
         self.state = -1
+
+    elif self.state == 1:
+      try:
+        m = Menu(self.hostMenu, 24, 80, 0, 0, help = '  Move: ↓↑ ─ Adjust sliders: ←→ ─ Select: Enter ─ Back: Ctrl + C  ')
+        m.createMenu()
+
+        if not m.selection == -1:
+          p = Menu(None, 3, 27, 15, 2, message = ' Enter a bind address: ')
+          self.bind = p.prompt()
+          self.payload = m.menu
+        else:
+          self.state = -1
+      except KeyboardInterrupt:
+        self.state = -1
+
+    else:
+      self.state = -1
 
   def drawBackground(self):
     self.w.addstr(1, 15, " _____         _         _____ _____ _____ _____ ")
